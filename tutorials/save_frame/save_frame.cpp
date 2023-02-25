@@ -14,7 +14,7 @@ int main(int arg, char *argv[]) {
 
     /* Build the pipeline */
     pipeline = gst_parse_launch(
-        "gst-launch-1.0 nvarguscamerasrc ! nvvidconv flip-method=vertical-flip .;l! pngenc snapshot=TRUE ! filesink location=test1.png",
+        "gst-launch-1.0 nvarguscamerasrc ! nvvidconv flip-method=vertical-flip ! pngenc snapshot=TRUE ! filesink location=test1.png",
         &gst_error
     );
 
