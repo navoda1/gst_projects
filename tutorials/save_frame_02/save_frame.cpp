@@ -30,7 +30,7 @@ int main(int arg, char *argv[]) {
     filesink = gst_element_factory_make("filesink", "file_sink");
 
     /* Create the empty pipeline */
-    pipeline = gst_pipeline_new("GstTimelapse");
+    pipeline = gst_pipeline_new("SaveFrame");
 
     if (!csi_cam_source || !vid_conv || !png_enc || !filesink) {
         std::cout << "ERROR: Could not create all pipeline elements" << std::endl;
