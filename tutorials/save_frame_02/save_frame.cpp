@@ -1,6 +1,17 @@
 #include <iostream>
 #include <gstreamer-1.0/gst/gst.h>
 
+/* Enum "GstNvVideoFlipMethod" Default: 0, "none"
+    (0): none             - Identity (no rotation)
+    (1): counterclockwise - Rotate counter-clockwise 90 degrees
+    (2): rotate-180       - Rotate 180 degrees
+    (3): clockwise        - Rotate clockwise 90 degrees
+    (4): horizontal-flip  - Flip horizontally
+    (5): upper-right-diagonal - Flip across upper right/lower left diagonal
+    (6): vertical-flip    - Flip vertically
+    (7): upper-left-diagonal - Flip across upper left/low */
+#define VERTICAL_FLIP 6
+
 int main(int arg, char *argv[]) {
     
     /* Pipeline */
@@ -22,8 +33,9 @@ int main(int arg, char *argv[]) {
         Pass in `arg` and `argv` to enable using gstreamer standard command-line options */
     gst_init(&arg, &argv);
 
-    /* Build the pipeline */
-
+    /* Build the pipeline
+        gst-launch-1.0 nvarguscamerasrc ! nvvidconv flip-method=vertical-flip ! pngenc snapshot=TRUE ! filesink location=test1.png 
+    */
     csi_cam_source = gst_element_factory_make("nvarguscamerasrc", "cam_source");
     vid_conv = gst_element_factory_make("nvvidconv", "vid_conv");
     png_enc = gst_element_factory_make("pngenc", "png_enc");
@@ -48,6 +60,7 @@ int main(int arg, char *argv[]) {
     /* Update settings */
     g_object_set(G_OBJECT(png_enc), "snapshot", (gboolean)true, NULL);
     g_object_set(G_OBJECT(filesink), "location", "./test.png", NULL);
+    g_object_set(G_OBJECT(vid_conv), "flip-method", VERTICAL_FLIP, NULL);
 
     /* Start playing */
     ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
