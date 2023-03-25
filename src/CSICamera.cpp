@@ -1,59 +1,85 @@
 #include <iostream>
-#include <gstreamer-1.0/gst/gst.h>
+#include <string>
 
-int main(int arg, char *argv[]) {
-    
-    /* Pipeline */
-    GstElement *pipeline = nullptr;
+#include "CSICamera.h"
 
-    /* Elements */
-    GstElement *csi_cam_source = nullptr;
-    GstElement *vid_conv = nullptr;
-    GstElement *png_enc = nullptr;
-    GstElement *filesink = nullptr;
+#define VERTICAL_FLIP 6
 
-    GstBus *gst_bus = nullptr;
-    GstMessage *gst_msg = nullptr;
-    GstStateChangeReturn ret;
-    int status;
+CSICamera::CSICamera() {
+
+    status_t status;
+
+    /* Initialize gstreamer */
+    gst_init(NULL, NULL);
+
+    status = build_pipeline();
+
+    if (status != success) {
+        std::cout << "ERROR: Could not build the pipeline" << std::endl;
+    }
+
+    frame_idx = 0;
+}
+
+status_t CSICamera::build_pipeline() {
+    /* gst-launch-1.0 nvarguscamerasrc ! nvvidconv flip-method=vertical-flip ! pngenc snapshot=TRUE ! filesink location=frames/frame%d.png  */
+
     bool success;
-
-    /* Initialize gstreamer. 
-        Pass in `arg` and `argv` to enable using gstreamer standard command-line options */
-    gst_init(&arg, &argv);
-
-    /* Build the pipeline */
-
+    
+    /* Create the pipeline elements */
     csi_cam_source = gst_element_factory_make("nvarguscamerasrc", "cam_source");
     vid_conv = gst_element_factory_make("nvvidconv", "vid_conv");
     png_enc = gst_element_factory_make("pngenc", "png_enc");
     filesink = gst_element_factory_make("filesink", "file_sink");
 
     /* Create the empty pipeline */
-    pipeline = gst_pipeline_new("GstTimelapse");
+    pipeline = gst_pipeline_new("SaveFrame");
 
     if (!csi_cam_source || !vid_conv || !png_enc || !filesink) {
         std::cout << "ERROR: Could not create all pipeline elements" << std::endl;
-        return -1;
+        return error;
     }
 
-    /* Add the elements and build */
+     /* Add the elements and build */
     gst_bin_add_many(GST_BIN(pipeline), csi_cam_source, vid_conv, png_enc, filesink, NULL);
     success = gst_element_link_many(csi_cam_source, vid_conv, png_enc, filesink, NULL);
     if (!success) {
         std::cout << "ERROR: Elements could not be linked" << std::endl;
-        return -1;
+        return error;
     }
 
     /* Update settings */
     g_object_set(G_OBJECT(png_enc), "snapshot", (gboolean)true, NULL);
-    g_object_set(G_OBJECT(filesink), "location", "./test.png", NULL);
+    g_object_set(G_OBJECT(vid_conv), "flip-method", VERTICAL_FLIP, NULL);
+}
 
-    /* Start playing */
+CSICamera::~CSICamera() {
+    /* Cleanup */
+    if (gst_bus != NULL) {
+        gst_object_unref(gst_bus);
+    }
+
+    if (pipeline != NULL) {
+        // gst_element_set_state(pipeline, GST_STATE_NULL);
+        gst_object_unref(pipeline);
+    }
+}
+
+status_t CSICamera::save_frame(int i) {
+
+    GstStateChangeReturn ret;
+    char fname[30];
+
+    sprintf(fname, "./frames/frame_%04d.png", i);
+
+    /* Update filesink location */
+    g_object_set(G_OBJECT(filesink), "location", fname, NULL);
+
+    /* Run the pipeline */   
     ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
     if (ret == GST_STATE_CHANGE_FAILURE) {
         std::cout << "ERROR: Could not set the pipeline state to GST_STATE_PLAYING" << std::endl;
-        return -1;
+        return error;
     }
 
     /* Wait until error of end of stream */
@@ -70,29 +96,27 @@ int main(int arg, char *argv[]) {
         char *debug_info;
 
         switch (GST_MESSAGE_TYPE(gst_msg)) {
-            case GST_MESSAGE_ERROR: 
+            case GST_MESSAGE_ERROR: {
                 gst_message_parse_error (gst_msg, &gst_error, &debug_info);
-                std::cout << "ERROR: Error from GST element: " << GST_OBJECT_NAME(gst_msg->src) << " | " <<
-                    gst_error->message << std::endl;
+                std::cout << "ERROR: Error from GST element: " << GST_OBJECT_NAME(gst_msg->src) << " | " << gst_error->message << std::endl;
                 std::cout << "Debug info: " << debug_info << std::endl;
                 g_clear_error(&gst_error);
                 g_free(debug_info);
-                break;
-            case GST_MESSAGE_EOS:
+            }
+            break;
+            case GST_MESSAGE_EOS: {
                 std::cout << "End of stream reached" << std::endl;
-                break;
-            default:
+            }
+            break;
+            default: {
                 std::cout << "ERROR: Unexpected message received" << std::endl;
-                break;
+            }
+            break;
         }
         gst_message_unref(gst_msg);
     }
 
-    /* Cleanup */
-    gst_object_unref(gst_bus);
+    /* Reset the pipeline */
     gst_element_set_state(pipeline, GST_STATE_NULL);
-    gst_object_unref(pipeline);
-    
-    std::cout << "Exiting" << std::endl;
-    return 0;
+
 }

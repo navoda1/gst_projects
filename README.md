@@ -1,5 +1,13 @@
 # Various Projects Tutorials using GStreamer
 
+## Pipelines
+
+### Capture a frame every second and write to separate files
+```
+gst-launch-1.0 nvarguscamerasrc ! queue ! nvvidconv flip-method=vertical-flip ! videorate ! video/x-raw,framerate=1/1 ! jpegenc ! multifilesink location="frames/frame%06d.jpg"
+```
+
+
 ## Tutorials
 
 ### `tutorials/save_frame_01`
