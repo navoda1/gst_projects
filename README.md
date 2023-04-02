@@ -1,17 +1,12 @@
-# Various Projects Tutorials using GStreamer
+# Timelapse Capture with GStreamer
+This project was created for me to get familiar with the GStreamer on C++. The `CSICamera.cpp` class instantiates the CSI Camera on an Nvidia Jetson Nano and provides a `save_frame()` function to continuously save image frames in a given location.
 
-## Pipelines
-
-### Capture a frame every second and write to separate files
+The GST pipeline for the image capture is:
 ```
-gst-launch-1.0 nvarguscamerasrc ! queue ! nvvidconv flip-method=vertical-flip ! videorate ! video/x-raw,framerate=1/1 ! jpegenc ! multifilesink location="frames/frame%06d.jpg"
+gst-launch-1.0 nvarguscamerasrc ! nvvidconv flip-method=vertical-flip ! pngenc snapshot=TRUE ! filesink location=frames/frame%d.png
 ```
 
-
-## Tutorials
-
-### `tutorials/save_frame_01`
-Simple pipeline to take a screenshot. Using `gst_parse_launch()` to build the pipeline from a string
-
-### `tutorials/save_frame_02`
-Simple pipeline to take a screenshot. Using gst API functions to build the pipeline.
+A separate script is used to combine the images into a video file:
+```
+gst-launch-1.0 -e multifilesrc location="frames/frame_%04d.png" caps="image/png,framerate=25/1,width=1920,height=1080" ! pngdec ! videoconvert ! queue ! x264enc ! queue ! mp4mux ! filesink location=video/timelapse.mp4
+```

@@ -1,0 +1,1 @@
+gst-launch-1.0 -e multifilesrc location="frames/frame_%04d.png" caps="image/png,framerate=25/1,width=1920,height=1080" ! pngdec ! videoconvert ! queue ! x264enc ! queue ! mp4mux ! filesink location=video/timelapse.mp4
